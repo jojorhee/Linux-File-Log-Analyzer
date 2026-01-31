@@ -54,6 +54,7 @@ def analyze(logs, dates):
         username_pattern = re.compile("Invalid user (\w+)")
         user_list = []
         timeb_list = []
+        timeb_dict = {}
         
         for log in range(len(logs)):
             name_match = username_pattern.search(logs[log])
@@ -64,9 +65,6 @@ def analyze(logs, dates):
             # track the usernames attacked!
             if name_match:
                 user_list.append(name_match.group(1))
-
-        print("Bruh")
-        print(timeb_list[0])
 
         ips = Counter(ip_list)
         dangerous_ips = ips.most_common()
@@ -111,15 +109,60 @@ def analyze(logs, dates):
             print(f"{targeted_users[i][0]} - {targeted_users[i][1]} failed attempts")
 
         print("----------------------------")
-        print("Time Window Bursts!")
+        print("\033[1mTime Window Bursts!\033[0m")
 
         
+        #print(timeb_list[11])
+        #['218.26.11.118', 'Nov 30 17:48:08']
+        #['218.26.11.118', datetime.datetime(2026, 11, 30, 17, 48, 8)]
 
-        for date in dates:
-            date = parser.parse(date)
+        # TIME BURST CODE
+        for entry in timeb_list:
+            entry[1] = parser.parse(entry[1])
 
-        print(dates[0])
+        ips = sorted(ips)
+        times = []
+        for ip in ips:
+            for entry in timeb_list:
+                if ip in entry:
+                    times.append(entry[1])
+                timeb_dict.update({ip:times})
+            times = []
 
+        counts = {}
+        for ip, times in timeb_dict.items():
+            alerts = 0
+            alerts_list = []
+            counter = 0
+            for time in range(len(times)):
+                window = times[0]
+                t = times[time]
+                
+                if t != window and (t - window).seconds < 60:
+                    alerts += 1
+                else:
+                    alerts_list.append(alerts)
+                    alerts = 0
+                    if time < len(times) - 1:
+                        window = times[time + 1] 
+                counter += 1
+
+            if max(alerts_list) < 1: 
+                counts.update({ip: 1})
+            else:
+                counts.update({ip: max(alerts_list)})
+            alerts = 0
+            alerts_list = []
+
+        counts = dict(sorted(counts.items(), key=lambda item: item[1], reverse=True))
+        #print(counts)
+
+        
+        for ip, occurences in counts.items():
+            if occurences >= 20:
+                print(f"Brute force attack by {ip}: {occurences} attempts within a minute!")
+            elif occurences >= 5:
+                print(f"Heavy attack by {ip}: {occurences} attempts within a minute!")
 
 
 
