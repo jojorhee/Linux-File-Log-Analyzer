@@ -1,9 +1,13 @@
 import re
 from dateutil import parser
 from collections import Counter
+import sys
 
-
-file_path = "logs/auth.log"
+try:
+    file_path = sys.argv[1]
+except:
+    print("Error: No log attached! Abort")
+    sys.exit(0)
 
 logs = []
 failed_logs = 0
@@ -23,7 +27,8 @@ def parse(file_path):
 
                     # parse dates   
                     date = line[:15]
-                    dates.append(date)         
+
+                    dates.append(parser.parse(date))         
 
                     failed_logs += 1 # now, the auth.log just shows all failed login attempts so not much to do           
 
@@ -38,7 +43,7 @@ def parse(file_path):
     
 def analyze(logs, dates):
     print("Log Analysis Summary")
-    print(f"Time range analyzed: {dates[0]} - {dates[-1]}")
+    print(f"Time range analyzed: {dates[0]} to {dates[-1]}")
     print(f"Total number of login attempts: {len(logs)}")
     print(f"Total number of failed login attempts: {failed_logs}")
     print("-----------------------------------------------------")
@@ -51,10 +56,11 @@ def analyze(logs, dates):
 
         # list each user, their ip address and how many times they attempted to log in
         ip_list = []
-        username_pattern = re.compile("Invalid user (\w+)")
+        username_pattern = re.compile("Invalid user (\\w+)")
         user_list = []
         timeb_list = []
-        timeb_dict = {}
+        timestamps = {}
+        maxbursts = {}
         
         for log in range(len(logs)):
             name_match = username_pattern.search(logs[log])
@@ -87,14 +93,23 @@ def analyze(logs, dates):
                 low_c -= 1
 
         print("\033[1mHigh Risks!\033[0m")
-        for ip in high_risks:
-            print(f"IP Address {ip[0]}: {ip[1]} failed login attempts!")
+        if not high_risks:
+            print("None")
+        else:
+            for ip in high_risks:
+                print(f"IP Address {ip[0]}: {ip[1]} failed login attempts!")
         print("\033[1mMedium Risks!\033[0m")
-        for ip in med_risks:
-            print(f"IP Address {ip[0]}: {ip[1]} failed login attempts!")
+        if not med_risks:
+            print("None")
+        else:
+            for ip in med_risks:
+                print(f"IP Address {ip[0]}: {ip[1]} failed login attempts!")
         print("\033[1mLow Risks!\033[0m")
-        for ip in low_risks:
-            print(f"IP Address {ip[0]}: {ip[1]} failed login attempts!")
+        if not low_risks:
+            print("None")
+        else:
+            for ip in low_risks:
+                print(f"IP Address {ip[0]}: {ip[1]} failed login attempts!")
 
         print("-------------------------------")
         print("\033[1mTop 10 Targeted Accounts & which IPs attack which users\033[0m")
@@ -109,64 +124,51 @@ def analyze(logs, dates):
             print(f"{targeted_users[i][0]} - {targeted_users[i][1]} failed attempts")
 
         print("----------------------------")
-        print("\033[1mTime Window Bursts!\033[0m")
-
-        
-        #print(timeb_list[11])
-        #['218.26.11.118', 'Nov 30 17:48:08']
-        #['218.26.11.118', datetime.datetime(2026, 11, 30, 17, 48, 8)]
+        print("\033[1mTime Window Bursts (Top 20)!\033[0m")
 
         # TIME BURST CODE
-        for entry in timeb_list:
-            entry[1] = parser.parse(entry[1])
-
-        ips = sorted(ips)
-        times = []
         for ip in ips:
+            times = []
             for entry in timeb_list:
                 if ip in entry:
                     times.append(entry[1])
-                timeb_dict.update({ip:times})
-            times = []
+            timestamps.update({ip:sorted(times)})
 
-        counts = {}
-        for ip, times in timeb_dict.items():
-            alerts = 0
-            alerts_list = []
-            counter = 0
+        for ip, times in timestamps.items():
+            alerts = 1
+            max_alerts = 0
+            window = times[0]
             for time in range(len(times)):
-                window = times[0]
                 t = times[time]
-                
+
                 if t != window and (t - window).seconds < 60:
                     alerts += 1
                 else:
-                    alerts_list.append(alerts)
-                    alerts = 0
-                    if time < len(times) - 1:
-                        window = times[time + 1] 
-                counter += 1
+                    if alerts > max_alerts:
+                        max_alerts = alerts
+                        alerts = 1
+                    window = t
 
-            if max(alerts_list) < 1: 
-                counts.update({ip: 1})
+            if alerts > max_alerts:
+                max_alerts = alerts
+
+            if max_alerts <= 1: 
+                maxbursts.update({ip: 1})
             else:
-                counts.update({ip: max(alerts_list)})
+                maxbursts.update({ip: max_alerts})
             alerts = 0
-            alerts_list = []
 
-        counts = dict(sorted(counts.items(), key=lambda item: item[1], reverse=True))
-        #print(counts)
+        maxbursts = dict(sorted(maxbursts.items(), key=lambda item: item[1], reverse=True))
 
+        i = 20
+        for ip, occurences in maxbursts.items():
+            if i >= 0:
+                if occurences >= 50:
+                    print(f"Brute force attack by {ip}: {occurences} attempts within a minute!")
+                elif occurences >= 20:
+                    print(f"Heavy attack by {ip}: {occurences} attempts within a minute!")
+                i -= 1
         
-        for ip, occurences in counts.items():
-            if occurences >= 20:
-                print(f"Brute force attack by {ip}: {occurences} attempts within a minute!")
-            elif occurences >= 5:
-                print(f"Heavy attack by {ip}: {occurences} attempts within a minute!")
-
-
-
-
 parse(file_path)
 
 analyze(logs, dates)
