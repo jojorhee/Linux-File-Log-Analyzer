@@ -1,6 +1,6 @@
 ## Project Description
 
-####🔐 What brute force looks like in logs
+#### 🔐 What brute force looks like in logs
 
 Brute force attacks appear as many rapid failed login attempts from the same IP, often targeting common usernames (root, admin, test).
 Instead of one or two failures, attackers generate clusters of attempts within seconds.
