@@ -42,7 +42,7 @@ def parse(file_path):
     #print(logs[6767][13:])
     
 def analyze(logs, dates):
-    print("Log Analysis Summary")
+    print("\033[1mLog Analysis Summary\033[0m")
     print(f"Time range analyzed: {dates[0]} to {dates[-1]}")
     print(f"Total number of login attempts: {len(logs)}")
     print(f"Total number of failed login attempts: {failed_logs}")
@@ -113,7 +113,6 @@ def analyze(logs, dates):
 
         print("-------------------------------")
         print("\033[1mTop 10 Targeted Accounts & which IPs attack which users\033[0m")
-        print("\033[1mWill do second part later\033[0m")
 
         usernames = Counter(user_list)
         targeted_users = usernames.most_common()
